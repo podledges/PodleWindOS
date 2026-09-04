@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import argparse
 import socket
+import struct
 import subprocess
 import sys
 import threading
+import time
 import unittest
 from pathlib import Path
 
@@ -72,6 +74,9 @@ class HandshakeTests(unittest.TestCase):
         with socket.create_connection(FEMALE_RX, timeout=2) as connection:
             connection.sendall(HELLO)
             reply = _read_line(connection)
+            connection.setsockopt(
+                socket.SOL_SOCKET, socket.SO_LINGER, struct.pack("ii", 1, 0)
+            )
 
         stdout, stderr = server.communicate(timeout=5)
         self.assertEqual(reply, ACK_HELLO)
@@ -174,6 +179,26 @@ class HandshakeTests(unittest.TestCase):
 
         with socket.create_connection((host, port), timeout=2) as bogus:
             bogus.sendall(b"NOPE\n")
+
+        send_hello(host, port, timeout=2)
+        stdout, stderr = server.communicate(timeout=5)
+        self.assertEqual(server.returncode, 0, stderr)
+        self.assertEqual(stdout, "hello\n")
+
+    def test_listener_continues_after_peer_resets_before_ack(self) -> None:
+        server = _start_listen("--port", "0", "--once")
+        self.addCleanup(lambda: server.poll() is None and server.kill())
+        assert server.stdout is not None
+        listening = server.stdout.readline().strip()
+        host, port_text = listening.removeprefix("listening on ").rsplit(":", 1)
+        port = int(port_text)
+
+        with socket.create_connection((host, port), timeout=2) as connection:
+            connection.sendall(HELLO)
+            connection.setsockopt(
+                socket.SOL_SOCKET, socket.SO_LINGER, struct.pack("ii", 1, 0)
+            )
+        time.sleep(0.1)
 
         send_hello(host, port, timeout=2)
         stdout, stderr = server.communicate(timeout=5)

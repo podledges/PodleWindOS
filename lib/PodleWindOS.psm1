@@ -54,11 +54,7 @@ function Start-PodleFemaleListener {
     $ListenHost = Test-LoopbackHost -HostName $ListenHost
     $ip = [System.Net.IPAddress]::Parse($ListenHost)
     $listener = New-Object System.Net.Sockets.TcpListener $ip, $ListenPort
-    $listener.Server.SetSocketOption(
-        [System.Net.Sockets.SocketOptionLevel]::Socket,
-        [System.Net.Sockets.SocketOptionName]::ReuseAddress,
-        $true
-    )
+    $listener.ExclusiveAddressUse = $true
     $listener.Start()
     $actualPort = ([System.Net.IPEndPoint]$listener.LocalEndpoint).Port
     [Console]::Out.WriteLine("listening on ${ListenHost}:${actualPort}")
@@ -80,8 +76,12 @@ function Start-PodleFemaleListener {
                     continue
                 }
                 $ack = [System.Text.Encoding]::ASCII.GetBytes("PORT-NIXVM/1 ACK-HELLO`n")
-                $stream.Write($ack, 0, $ack.Length)
-                $stream.Flush()
+                try {
+                    $stream.Write($ack, 0, $ack.Length)
+                    $stream.Flush()
+                } catch {
+                    continue
+                }
                 [Console]::Out.WriteLine('hello')
                 [Console]::Out.Flush()
             } finally {

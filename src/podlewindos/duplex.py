@@ -63,7 +63,6 @@ def serve_hello(
     host = loopback_address(host)
     family = socket.AF_INET6 if ":" in host else socket.AF_INET
     with socket.socket(family, socket.SOCK_STREAM) as listener:
-        listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         listener.bind((host, port))
         listener.listen(4)
         actual_port = int(listener.getsockname()[1])
@@ -80,7 +79,10 @@ def serve_hello(
                     continue
                 if message != HELLO:
                     continue
-                connection.sendall(ACK_HELLO)
+                try:
+                    connection.sendall(ACK_HELLO)
+                except OSError:
+                    continue
                 if on_hello is not None:
                     on_hello()
             if once:
