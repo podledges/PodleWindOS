@@ -6,40 +6,33 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+BIN = ROOT / "bin" / "podlewindos"
 sys.path.insert(0, str(ROOT / "src"))
 
-from podlewindos.diagnostics import (
-    ALLOWED_COMMANDS,
-    POWERSHELL_COMMANDS,
-    DiagnosticError,
-    run_diagnostic,
+from podlewindos.diagnostics import DiagnosticError, run_diagnostic
+
+V1_COMMANDS = (
+    "computer-info",
+    "disk",
+    "process-list",
+    "adapters",
+    "battery",
 )
 
 
 class DiagnosticTests(unittest.TestCase):
-    def test_allowlist_is_the_v1_read_only_set(self) -> None:
-        self.assertEqual(
-            ALLOWED_COMMANDS,
-            (
-                "computer-info",
-                "disk",
-                "process-list",
-                "adapters",
-                "battery",
-            ),
-        )
-        self.assertEqual(set(ALLOWED_COMMANDS), set(POWERSHELL_COMMANDS))
-
-    def test_allowlisted_command_uses_injected_runner(self) -> None:
+    def test_each_v1_diagnostic_dispatches_to_runner(self) -> None:
         seen: list[str] = []
 
         def runner(command: str) -> str:
             seen.append(command)
             return f"result-{command}\n"
 
-        body = run_diagnostic("disk", runner=runner)
-        self.assertEqual(body, "result-disk\n")
-        self.assertEqual(seen, ["disk"])
+        for name in V1_COMMANDS:
+            with self.subTest(command=name):
+                body = run_diagnostic(name, runner=runner)
+                self.assertEqual(body, f"result-{name}\n")
+        self.assertEqual(seen, list(V1_COMMANDS))
 
     def test_unknown_command_is_refused_without_running_anything(self) -> None:
         def runner(command: str) -> str:
@@ -75,7 +68,7 @@ class DiagnosticTests(unittest.TestCase):
 
     def test_cli_diag_unknown_exits_nonzero(self) -> None:
         completed = subprocess.run(
-            [sys.executable, str(ROOT / "bin" / "podlewindos"), "diag", "Stop-Process"],
+            [sys.executable, str(BIN), "diag", "Stop-Process"],
             check=False,
             capture_output=True,
             text=True,
@@ -88,7 +81,7 @@ class DiagnosticTests(unittest.TestCase):
         if sys.platform.startswith("win"):
             self.skipTest("default runner is available on Windows")
         completed = subprocess.run(
-            [sys.executable, str(ROOT / "bin" / "podlewindos"), "diag", "disk"],
+            [sys.executable, str(BIN), "diag", "disk"],
             check=False,
             capture_output=True,
             text=True,

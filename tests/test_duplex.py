@@ -4,37 +4,113 @@ import argparse
 import socket
 import subprocess
 import sys
+import threading
 import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+BIN = ROOT / "bin" / "podlewindos"
 sys.path.insert(0, str(ROOT / "src"))
 
 from podlewindos.cli import _loopback_arg
-from podlewindos.duplex import (
-    ACK_HELLO,
-    HELLO,
-    RX_PORT,
-    TX_PORT,
-    HandshakeError,
-    loopback_address,
-    receive_line,
-    send_hello,
-)
+from podlewindos.duplex import HandshakeError, loopback_address, receive_line, send_hello
+
+FEMALE_RX = ("127.0.0.1", 42067)
+MALE_TX = ("127.0.0.1", 46720)
+HELLO = b"PORT-NIXVM/1 HELLO\n"
+ACK_HELLO = b"PORT-NIXVM/1 ACK-HELLO\n"
+
+
+def _cli(*args: str) -> list[str]:
+    return [sys.executable, str(BIN), *args]
+
+
+def _start_listen(*args: str) -> subprocess.Popen[str]:
+    server = subprocess.Popen(
+        _cli("listen", *args),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    return server
+
+
+def _read_line(connection: socket.socket) -> bytes:
+    data = bytearray()
+    while b"\n" not in data:
+        chunk = connection.recv(1)
+        if not chunk:
+            break
+        data.extend(chunk)
+    return bytes(data)
 
 
 class HandshakeTests(unittest.TestCase):
-    def test_protocol_tokens_are_versioned_and_bounded(self) -> None:
-        self.assertEqual(HELLO, b"PORT-NIXVM/1 HELLO\n")
-        self.assertEqual(ACK_HELLO, b"PORT-NIXVM/1 ACK-HELLO\n")
-        self.assertLessEqual(len(HELLO), 64)
-        self.assertLessEqual(len(ACK_HELLO), 64)
+    def test_listener_exchanges_hello_ack_hello_on_the_wire(self) -> None:
+        server = _start_listen("--port", "0", "--once")
+        self.addCleanup(lambda: server.poll() is None and server.kill())
+        assert server.stdout is not None
+        listening = server.stdout.readline().strip()
+        host, port_text = listening.removeprefix("listening on ").rsplit(":", 1)
 
-    def test_locked_ports(self) -> None:
-        self.assertEqual(RX_PORT, 42067)
-        self.assertEqual(TX_PORT, 46720)
-        self.assertLessEqual(RX_PORT, 65535)
-        self.assertLessEqual(TX_PORT, 65535)
+        with socket.create_connection((host, int(port_text)), timeout=2) as connection:
+            connection.sendall(HELLO)
+            reply = _read_line(connection)
+
+        stdout, stderr = server.communicate(timeout=5)
+        self.assertEqual(reply, ACK_HELLO)
+        self.assertEqual(server.returncode, 0, stderr)
+        self.assertEqual(stdout, "hello\n")
+
+    def test_cli_listen_defaults_to_female_rx_port(self) -> None:
+        server = _start_listen("--once")
+        self.addCleanup(lambda: server.poll() is None and server.kill())
+        assert server.stdout is not None
+        listening = server.stdout.readline().strip()
+        self.assertEqual(listening, f"listening on {FEMALE_RX[0]}:{FEMALE_RX[1]}")
+
+        with socket.create_connection(FEMALE_RX, timeout=2) as connection:
+            connection.sendall(HELLO)
+            reply = _read_line(connection)
+
+        stdout, stderr = server.communicate(timeout=5)
+        self.assertEqual(reply, ACK_HELLO)
+        self.assertEqual(server.returncode, 0, stderr)
+        self.assertEqual(stdout, "hello\n")
+
+    def test_cli_hello_defaults_to_male_tx_port(self) -> None:
+        received: dict[str, bytes] = {}
+        ready = threading.Event()
+
+        def serve() -> None:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as listener:
+                listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                listener.bind(MALE_TX)
+                listener.listen(1)
+                listener.settimeout(5)
+                ready.set()
+                connection, _ = listener.accept()
+                with connection:
+                    connection.settimeout(2)
+                    received["line"] = _read_line(connection)
+                    connection.sendall(ACK_HELLO)
+
+        worker = threading.Thread(target=serve)
+        worker.start()
+        self.addCleanup(worker.join)
+        self.assertTrue(ready.wait(2), "male TX test listener did not bind")
+
+        client = subprocess.run(
+            _cli("hello"),
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        worker.join(timeout=5)
+        self.assertEqual(client.returncode, 0, client.stderr)
+        self.assertEqual(client.stdout, "ack-hello\n")
+        self.assertEqual(received.get("line"), HELLO)
 
     def test_receive_line_rejects_oversized_input(self) -> None:
         sender, receiver = socket.socketpair()
@@ -57,28 +133,25 @@ class HandshakeTests(unittest.TestCase):
         self.assertEqual(loopback_address("localhost"), "127.0.0.1")
         self.assertEqual(loopback_address("::1"), "::1")
 
-    def test_cli_completes_hello_ack_hello(self) -> None:
-        command = [
-            sys.executable,
-            str(ROOT / "bin" / "podlewindos"),
-            "listen",
-            "--port",
-            "0",
-            "--once",
-        ]
-        server = subprocess.Popen(
-            command,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+        rejected = subprocess.run(
+            _cli("listen", "--host", "0.0.0.0", "--once"),
+            check=False,
+            capture_output=True,
             text=True,
+            timeout=5,
         )
+        self.assertNotEqual(rejected.returncode, 0)
+        self.assertIn("loopback", rejected.stderr)
+
+    def test_cli_completes_hello_ack_hello(self) -> None:
+        server = _start_listen("--port", "0", "--once")
         self.addCleanup(lambda: server.poll() is None and server.kill())
         assert server.stdout is not None
         listening = server.stdout.readline().strip()
         port = listening.rsplit(":", 1)[1]
 
         client = subprocess.run(
-            [sys.executable, str(ROOT / "bin" / "podlewindos"), "hello", "--port", port],
+            _cli("hello", "--port", port),
             check=False,
             capture_output=True,
             text=True,
@@ -92,20 +165,7 @@ class HandshakeTests(unittest.TestCase):
         self.assertEqual(stdout, "hello\n")
 
     def test_listen_ignores_invalid_then_handshakes(self) -> None:
-        command = [
-            sys.executable,
-            str(ROOT / "bin" / "podlewindos"),
-            "listen",
-            "--port",
-            "0",
-            "--once",
-        ]
-        server = subprocess.Popen(
-            command,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-        )
+        server = _start_listen("--port", "0", "--once")
         self.addCleanup(lambda: server.poll() is None and server.kill())
         assert server.stdout is not None
         listening = server.stdout.readline().strip()
@@ -132,8 +192,6 @@ class HandshakeTests(unittest.TestCase):
                 with connection:
                     connection.recv(64)
                     connection.sendall(b"PORT-NIXVM/1 ACK\n")
-
-            import threading
 
             worker = threading.Thread(target=reply)
             worker.start()
