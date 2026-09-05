@@ -1,15 +1,23 @@
-# PodleMale — Windows TX hook spec
+# PodleMale — Windows TX hook
 
-Planning-only contract for the Windows-side transmitter. This folder does not contain a working bridge, listener, PowerShell automation, or AutoHotkey script.
+Windows-side transmitter toward Nix Female.
 
 ## Direction and endpoint
 
 - Direction: Windows PodleMale TX → Nix PodleFemale RX.
-- Destination: `127.0.0.1:67420`.
-- The Nix-side Female listener is owned by `podledges/PodleTools`; implementation is out of scope here.
+- Destination: `127.0.0.1:46720`.
+- Loopback only; non-loopback destinations are rejected.
 
-## v1 payload intent
+## Handshake
 
-Transmit requests/results for WindOS-triggered, read-only diagnostics only (for example computer information, disks, process list, adapters, and battery). No elevation, registry writes, kills, or installs.
+Send with [`Send-PodleMale.ps1`](Send-PodleMale.ps1) from Windows PowerShell. Transmits `PORT-NIXVM/1 HELLO` and requires `PORT-NIXVM/1 ACK-HELLO`. Prints `ack-hello` on success.
 
-Wire format, retry behavior, and lifecycle remain unspecified until the communication graph is designed.
+The Nix-side Female listener is owned by `podledges/PodleTools`.
+
+Captain runbook: [`../README.md`](../README.md).
+
+## v1 diagnostics
+
+Read-only WindOS-triggered diagnostics are a local path, not this handshake. See [`../lib/Invoke-WindOSDiagnostic.ps1`](../lib/Invoke-WindOSDiagnostic.ps1).
+
+The communication graph remains postponed.

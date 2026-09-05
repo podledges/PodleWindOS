@@ -1,9 +1,8 @@
 # VM and network facts
 
-Status: placeholder — record confirmed localhost/VM facts here.
-
 - Nix tools location: `podledges/PodleTools`
 - Port NixVM (Nix TX → Windows RX): `127.0.0.1:42067`
-- Return (Windows TX → Nix RX): `127.0.0.1:67420`
+- Return (Windows TX → Nix RX): `127.0.0.1:46720`
 - Duplex model: crossed Male/Female channels.
-- Communication graph: postponed; do not infer runtime topology from this placeholder.
+- Handshake: `PORT-NIXVM/1 HELLO` / `PORT-NIXVM/1 ACK-HELLO`, loopback only.
+- Communication graph: postponed.

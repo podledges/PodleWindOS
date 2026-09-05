@@ -1,6 +1,6 @@
 # Windows hardware facts
 
-Status: placeholder — record confirmed host hardware facts here.
+Record confirmed host hardware here after a read-only diagnostic run.
 
 - CPU: TBD
 - Memory: TBD
@@ -8,4 +8,4 @@ Status: placeholder — record confirmed host hardware facts here.
 - Adapters: TBD
 - Battery/power availability: TBD
 
-Only read-only diagnostics are in scope for v1.
+Use `computer-info`, `disk`, `adapters`, and `battery` from [`../lib/Invoke-WindOSDiagnostic.ps1`](../lib/Invoke-WindOSDiagnostic.ps1).

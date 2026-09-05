@@ -1,15 +1,21 @@
-# PodleFemale — Windows RX hook spec
+# PodleFemale — Windows RX hook
 
-Planning-only contract for the Windows-side receiver. This folder does not contain a working bridge, listener, PowerShell automation, or AutoHotkey script.
+Windows-side receiver for Port NixVM.
 
 ## Direction and endpoint
 
 - Direction: Nix PodleMale TX → Windows PodleFemale RX.
 - Listen endpoint: `127.0.0.1:42067` (Port NixVM).
-- The Windows Female listener implementation is explicitly deferred.
+- Loopback only; non-loopback binds are rejected.
 
-## v1 permission intent
+## Handshake
 
-Accept only WindOS-triggered, read-only diagnostic intent, such as computer information, disks, process list, adapters, and battery. No elevation, registry writes, process kills, or installs.
+Listen with [`Listen-PodleFemale.ps1`](Listen-PodleFemale.ps1) from Windows PowerShell. On `PORT-NIXVM/1 HELLO`, reply `PORT-NIXVM/1 ACK-HELLO` and print `hello`.
 
-Wire format, validation, and lifecycle remain unspecified until the communication graph is designed.
+Captain runbook: [`../README.md`](../README.md).
+
+## v1 diagnostics
+
+Read-only WindOS-triggered diagnostics are a local path, not this handshake. See [`../lib/Invoke-WindOSDiagnostic.ps1`](../lib/Invoke-WindOSDiagnostic.ps1).
+
+The communication graph remains postponed.
