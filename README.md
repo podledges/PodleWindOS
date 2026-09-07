@@ -82,5 +82,6 @@ python3 -m unittest discover -s tests -v
 - [`WinSpec/`](WinSpec/) — Windows/main-OS facts loaded only for WindOS sentence context
 - [`lib/PodleWindOS.psm1`](lib/PodleWindOS.psm1) — PowerShell handshake and diagnostic implementations
 - [`src/podlewindos/`](src/podlewindos/) — portable handshake engine
+- [`tools/clipboard-images/`](tools/clipboard-images/) — on-demand STA capture of the current clipboard image to unique staging PNGs (source only; not the live autosaver)
 
 The communication graph is postponed.
