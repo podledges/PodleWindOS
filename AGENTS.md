@@ -5,6 +5,7 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 - This is **PodleWindOS**, the Windows/main-OS side of the localhost Port NixVM data pipeline. Tools here run at Windows OS-access level; v1 actions are read-only diagnostics only.
 - For `wind`, `windOS`, or `main system`, consult [`./WinSpec/`](./WinSpec/) only when sentence context clearly refers to the Windows/main machine. Matching is case-insensitive and ignores trailing spaces and periods; do not load it for bare `OS`, `Mix`, or `Next`.
 - Captain-facing runbook for the loopback RX/TX hooks is [`./README.md`](./README.md).
+- Clipboard tools live in [`./tools/clipboard-images/`](./tools/clipboard-images/): in-tree autosave listener (PR 8, source-only) and on-demand WezTerm Alt+V capture [`Capture-CurrentClipboardImage.ps1`](./tools/clipboard-images/Capture-CurrentClipboardImage.ps1) (`powershell.exe -NoProfile -STA -File`, optional `-DestinationDirectory`, unique PNGs under `%LOCALAPPDATA%\PodlePaste\staging`). Capture must not scan Screenshots2, mutate the clipboard, or start/stop the live PodleShell listener.
 - `docs/PromptHistory.md` is intentionally git-ignored. Process that file's contents **if and only if** the ingesting agent is configured for `xhigh` difficulty, or the input contains `look at the logs`, `review history`, `project history`, or `prompt history`.
 - Keep technical context short and avoid letting OS details dominate chat.
 
