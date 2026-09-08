@@ -69,11 +69,21 @@ bin/podlewindos diag computer-info     # local diagnostics; requires Windows
 
 `listen --host` and `hello --host` accept only loopback addresses.
 
+## Clipboard image autosave
+
+[`tools/clipboard-images/`](tools/clipboard-images/) is the canonical Windows owner of the event-driven clipboard-image listener. It works standalone and saves local PNG files without clipboard mutation, networking, overwrites, or startup replay. The optional [`PodleTools` counterpart](https://github.com/podledges/PodleTools/tree/main/tools/clipboard-images) only locates those files from NixOS/Pi.
+
+The same directory also contains on-demand STA capture (`Capture-CurrentClipboardImage.ps1`) for WezTerm Alt+V: unique staging PNGs and one JSON object on stdout. Capture does not use Screenshots2, does not scan folders, and is not the listener.
+
+The listener migration is source-only for now: do not change the currently deployed PodleShell listener. See the tool README for dependencies, synthetic tests, provenance, the capture call shape, and the future explicit cutover procedure.
+
 ## Tests
 
 ```bash
 python3 -m unittest discover -s tests -v
 ```
+
+The clipboard-image helpers have separate Windows-only synthetic tests documented in [`tools/clipboard-images/README.md`](tools/clipboard-images/README.md). They do not access the live clipboard.
 
 ## Layout
 
@@ -82,6 +92,6 @@ python3 -m unittest discover -s tests -v
 - [`WinSpec/`](WinSpec/) — Windows/main-OS facts loaded only for WindOS sentence context
 - [`lib/PodleWindOS.psm1`](lib/PodleWindOS.psm1) — PowerShell handshake and diagnostic implementations
 - [`src/podlewindos/`](src/podlewindos/) — portable handshake engine
-- [`tools/clipboard-images/`](tools/clipboard-images/) — on-demand STA capture of the current clipboard image to unique staging PNGs (source only; not the live autosaver)
+- [`tools/clipboard-images/`](tools/clipboard-images/) — standalone clipboard-image autosave plus on-demand STA capture to unique staging PNGs (source only; not the live PodleShell listener)
 
 The communication graph is postponed.

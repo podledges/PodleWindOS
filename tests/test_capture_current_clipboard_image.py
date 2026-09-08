@@ -92,11 +92,16 @@ class CaptureCurrentClipboardImageContractTests(unittest.TestCase):
         self.assertIn("New-Object System.Drawing.Bitmap", ps_test)
         self.assertIn("GetNewClosure", ps_test)
 
-    def test_does_not_vendor_pr8_listener(self) -> None:
+    def test_keeps_autosaver_and_on_demand_capture(self) -> None:
         names = {path.name for path in CAPTURE_DIR.iterdir() if path.is_file()}
-        self.assertNotIn("ClipboardImageAutosave.ps1", names)
-        self.assertNotIn("Start-ClipboardImageAutosave.ps1", names)
-        self.assertNotIn("Stop-ClipboardImageAutosave.ps1", names)
+        self.assertIn("ClipboardImageAutosave.ps1", names)
+        self.assertIn("Start-ClipboardImageAutosave.ps1", names)
+        self.assertIn("Stop-ClipboardImageAutosave.ps1", names)
+        self.assertIn("Capture-CurrentClipboardImage.ps1", names)
+        self.assertTrue(
+            (CAPTURE_DIR / "Capture-CurrentClipboardImage.Core.psm1").is_file()
+        )
+        self.assertTrue((CAPTURE_DIR / "ClipboardImageAutosave.Core.psm1").is_file())
 
 
 if __name__ == "__main__":
